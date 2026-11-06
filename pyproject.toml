@@ -1,0 +1,49 @@
+[project]
+name = "option-persona"
+version = "0.1.0"
+description = "Option Persona (OP) — Quantitative Options Intelligence Platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary — all rights reserved" }
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "pandas>=2.2",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+app = ["streamlit>=1.38"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+]
+# Independent third-party oracle used only to cross-validate our formulas in tests.
+validation = ["QuantLib>=1.34"]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/option_persona"]
+
+[tool.uv]
+default-groups = ["dev", "validation"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::RuntimeWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+ignore = ["N802", "N803", "N806", "N813", "N815", "N816", "RUF001", "RUF002", "RUF003"]  # financial notation: S, K, T, V are conventional
