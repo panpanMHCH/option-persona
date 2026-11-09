@@ -27,6 +27,13 @@
 - [ ] Box spreads: implied financing rate versus benchmark rates, after costs
 - [ ] Richer cost model: exchange/regulatory fees, tiered commissions, slippage, margin financing
 
+## Added at the owner's request (9 November 2026)
+
+These sit outside the original phase order. They reuse only validated Phase 1 maths.
+
+- [x] Strike comparison: cost, breakeven, move needed in expected moves, Q-probabilities, theta and λ across candidate strikes; observed rows enter at the ask with their own IV ([notes](docs/models/05_strike_comparison_and_exit_review.md))
+- [x] Hold-or-sell review: a checklist of factors (re-buy test, time left, theta, intrinsic versus time value, auto-exercise and delivery, liquidity, the reason for the trade) that never outputs a recommendation
+
 ## Phase 3: Research and personal trading analytics
 
 - [ ] American options: Cox-Ross-Rubinstein binomial tree (convergence study versus QuantLib), early-exercise boundary

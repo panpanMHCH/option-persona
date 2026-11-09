@@ -13,7 +13,7 @@ It is **read-only and analytical**. It does not connect to brokers, place orders
 | Module A — Pricing | European Black-Scholes-Merton with continuous dividend yield; analytical delta, gamma, vega, theta, rho; implied volatility (bracketed Brent with OTM conditioning); model-free price bounds; explicit T→0 and σ→0 limits |
 | Module B — Arbitrage | Put-call parity residuals; three-tier assessment (theoretical residual → apparent executable edge at bid/ask after fees and asymmetric financing → execution risks); synthetic chains with labelled injected violations |
 | Module D — Leverage & risk | Share-equivalent exposure, delta-adjusted notional, elasticity (λ), premium at risk, % of equity, spot × vol stress grid, comparison with shares, concentration/leverage/expiry/liquidity warnings |
-| Module E — Trade analyser | Long call/put positions: breakeven, max loss/gain, expiry P&L after fees, BSM scenario grid through time, realised P&L |
+| Module E — Trade analyser | Long call/put positions: breakeven, max loss/gain, expiry P&L after fees, BSM scenario grid through time, realised P&L; side-by-side strike comparison before a trade; hold-or-sell checklist for open positions ([notes](docs/models/05_strike_comparison_and_exit_review.md)) |
 | Data ingestion (Phase 2) | Option-chain CSV import into validated quotes with provenance; row-level rejection with reasons; contract terms from the file, a known-index registry, or a stated assumption ([notes](docs/data/chain_csv_import.md)) |
 | Dashboard | Streamlit app connecting the modules above, including a chain-import tab |
 

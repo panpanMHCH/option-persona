@@ -31,7 +31,11 @@ from option_persona.pricing import (
 )
 from option_persona.risk import (
     ModelAssumptions,
+    ReviewStatus,
+    StrikeCandidate,
+    compare_strikes,
     compare_with_shares,
+    exit_review,
     expiration_pnl,
     expiration_profile,
     exposure_report,
@@ -61,8 +65,9 @@ st.sidebar.caption(
 )
 
 st.title("Option Persona")
-tab_price, tab_iv, tab_trade, tab_parity, tab_import = st.tabs(
-    ["Pricer & Greeks", "Implied volatility", "Trade analyser", "Parity lab", "Chain import"])
+tab_price, tab_iv, tab_strikes, tab_trade, tab_parity, tab_import = st.tabs(
+    ["Pricer & Greeks", "Implied volatility", "Strike comparison", "Trade analyser", "Parity lab",
+     "Chain import"])
 
 # ------------------------------------------------------------------ pricer
 with tab_price:
@@ -131,6 +136,79 @@ with tab_iv:
     st.info("BSM implied volatility assumes European exercise. For American puts (e.g. US single "
             "stocks), it slightly overstates volatility because the price includes an early-exercise "
             "premium the European model ignores.")
+
+# ------------------------------------------------------------------ strike comparison
+with tab_strikes:
+    st.subheader("Strike comparison — before you trade")
+    st.caption("Lays out the trade-off between strikes: cost, the move needed to break even, time "
+               "decay and leverage. It does not rank strikes; which trade-off suits you is your call.")
+    st.markdown(f"**{label('obs')}**")
+    c = st.columns(5)
+    sc_type = c[0].selectbox("Type   ", [OptionType.PUT, OptionType.CALL], format_func=str.capitalize)
+    sc_spot = c[1].number_input("Underlying now ", value=201.5, min_value=0.01)
+    sc_expiry = c[2].date_input("Expiry ", value=date(2026, 11, 6))
+    sc_contracts = c[3].number_input("Contracts ", value=1, min_value=1, step=1)
+    sc_fee = c[4].number_input("Fee per contract ($)", value=0.65, min_value=0.0)
+    st.markdown("Strikes to compare. Fill in **bid** and **ask** from your broker where you have them "
+                "(the row then enters at the ask, with the ask's own IV); leave them blank to use the "
+                "model at the reference volatility.")
+    sc_edit = st.data_editor(
+        pd.DataFrame({"strike": [185.0, 190.0, 195.0, 200.0], "bid": [None] * 4, "ask": [None] * 4},
+                     dtype="float64"),
+        num_rows="dynamic", hide_index=True, key="strike_editor")
+    st.markdown(f"**{label('assume')}**")
+    c = st.columns(4)
+    sc_date = c[0].date_input("Valuation date ", value=date(2026, 10, 30))
+    sc_time = c[1].time_input("Valuation time ", value=time(10, 0))
+    sc_tz = c[2].selectbox("Time zone ", ["America/New_York", "Asia/Bangkok"])
+    sc_vol = c[3].number_input("Reference volatility σ (%)", value=46.0, min_value=0.1,
+                               help="Used for rows without a quote, and for the expected-move scale.") / 100
+    sc_now = datetime.combine(sc_date, sc_time, tzinfo=NEW_YORK if sc_tz == "America/New_York" else BANGKOK)
+    try:
+        cands = []
+        for r_ in sc_edit.dropna(subset=["strike"]).itertuples():
+            has = not (pd.isna(r_.bid) or pd.isna(r_.ask))
+            cands.append(StrikeCandidate(float(r_.strike), float(r_.bid) if has else None,
+                                         float(r_.ask) if has else None))
+        table = compare_strikes(sc_type, sc_spot, sc_expiry, sc_now, cands,
+                                ModelAssumptions(volatility=sc_vol, rate=rate, dividend_yield=div_yield),
+                                contracts=int(sc_contracts), fee_per_contract=sc_fee)
+        em = table.attrs["expected_move"]
+        st.caption(f"{table.attrs['days_to_expiry']:.2f} days to expiry. One expected move "
+                   f"(S·σ·√T at {sc_vol:.0%}) = ±{em:,.2f}, i.e. {sc_spot - em:,.2f} to {sc_spot + em:,.2f}: "
+                   "a scale reference, not a forecast.")
+        view = table[["strike", "price_basis", "entry_price", "cost", "breakeven", "move_to_breakeven",
+                      "breakeven_in_expected_moves", "q_prob_itm", "q_prob_beyond_breakeven",
+                      "theta_per_day", "theta_pct_of_value_per_day", "elasticity", "volatility",
+                      "relative_spread"]].rename(columns={
+            "price_basis": "price from", "entry_price": "entry / share", "cost": "cost = max loss ($)",
+            "move_to_breakeven": "move to breakeven", "breakeven_in_expected_moves": "…in expected moves",
+            "q_prob_itm": "Q-prob ITM", "q_prob_beyond_breakeven": "Q-prob past breakeven",
+            "theta_per_day": "theta $/day", "theta_pct_of_value_per_day": "theta % of value/day",
+            "elasticity": "λ", "volatility": "σ used", "relative_spread": "spread % of mid"})
+        st.dataframe(view.style.format({
+            "strike": "{:g}", "entry / share": "{:.2f}", "cost = max loss ($)": "{:,.0f}",
+            "breakeven": "{:,.2f}", "move to breakeven": "{:+.1%}", "…in expected moves": "{:+.2f}",
+            "Q-prob ITM": "{:.0%}", "Q-prob past breakeven": "{:.0%}", "theta $/day": "{:+,.1f}",
+            "theta % of value/day": "{:+.1%}", "λ": "{:.1f}", "σ used": "{:.1%}",
+            "spread % of mid": "{:.1%}"}, na_rep="—"), hide_index=True, width="stretch")
+        for note in table.loc[table.note != "", "note"]:
+            st.warning(note)
+        st.markdown(
+            "**How to read it**\n"
+            "- **Cost** is also the most you can lose. **Move to breakeven** is how far the stock must "
+            "go by expiry just to get your money back.\n"
+            "- **…in expected moves** compares that to the market's typical move: −0.5 is well within "
+            "it, −1.5 needs an unusually large move.\n"
+            "- **Q-prob** columns are risk-neutral (the market's pricing), **not** real-world odds.\n"
+            "- **theta % of value/day** is the share of the option you lose each day if nothing moves.\n"
+            "- **λ** is how many % the option moves per 1% move in the stock. Further out of the money "
+            "is cheaper in dollars but more fragile in percent.")
+        st.caption(label("model") + " — " + table.attrs["assumptions"] + ". Model rows assume one "
+                   "volatility for every strike; real chains usually charge more for lower-strike puts. "
+                   "US single-stock options are American; BSM ignores early exercise.")
+    except (OptionPersonaError, ValueError) as e:
+        st.error(str(e))
 
 # ------------------------------------------------------------------ trade analyser
 with tab_trade:
@@ -244,6 +322,29 @@ with tab_trade:
         with st.expander("Model caveats for this position"):
             for note in model_caveats(pos):
                 st.markdown(f"- {note}")
+
+        st.markdown("#### Hold-or-sell review")
+        st.caption("A checklist of the factors that matter for closing before expiry. It never says "
+                   "hold or sell: that decision is yours.")
+        c = st.columns(3)
+        cur_bid = c[0].number_input("Current option bid (optional)", value=None, min_value=0.0,
+                                    format="%.2f")
+        cur_ask = c[1].number_input("Current option ask (optional)", value=None, min_value=0.0,
+                                    format="%.2f")
+        thesis = c[2].radio("Does your reason for the trade still hold?", ["Not sure", "Yes", "No"],
+                            horizontal=True)
+        try:
+            review = exit_review(pos, spot_now, valuation, A, bid=cur_bid, ask=cur_ask,
+                                 thesis_intact={"Yes": True, "No": False}.get(thesis))
+        except OptionPersonaError as e:
+            st.info(str(e))
+        else:
+            icon = {ReviewStatus.OK: "🟢", ReviewStatus.WATCH: "🟡", ReviewStatus.ALERT: "🔴",
+                    ReviewStatus.INFO: "ℹ️"}
+            for item in review.items:
+                st.markdown(f"{icon[item.status]} **{item.factor}** — {item.finding}  \n"
+                            f"<span style='opacity:0.7'>{item.why}</span>", unsafe_allow_html=True)
+            st.caption(review.disclaimer)
     except (OptionPersonaError, ValueError) as e:
         st.error(str(e))
 

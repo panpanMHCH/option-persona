@@ -1,5 +1,12 @@
 """Module D (leverage & risk) and Module E foundations (position payoff & scenarios)."""
 
+from option_persona.risk.exit_review import (
+    ExitReview,
+    ExitReviewThresholds,
+    ReviewItem,
+    ReviewStatus,
+    exit_review,
+)
 from option_persona.risk.leverage import (
     ExposureReport,
     RiskLimits,
@@ -20,14 +27,23 @@ from option_persona.risk.scenarios import (
     scenario_grid,
     spot_vol_stress,
 )
+from option_persona.risk.strike_comparison import StrikeCandidate, compare_strikes, expected_move
 
 __all__ = [
+    "ExitReview",
+    "ExitReviewThresholds",
     "ExpirationProfile",
     "ExposureReport",
     "ModelAssumptions",
+    "ReviewItem",
+    "ReviewStatus",
     "RiskLimits",
+    "StrikeCandidate",
     "breakeven_at_expiry",
+    "compare_strikes",
     "compare_with_shares",
+    "exit_review",
+    "expected_move",
     "expiration_pnl",
     "expiration_profile",
     "exposure_report",
