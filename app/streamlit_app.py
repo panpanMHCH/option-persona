@@ -1,4 +1,4 @@
-"""Option Persona — minimal research dashboard (Phase 1).
+"""Option Persona — research dashboard (Phase 1, plus Phase 2 chain import).
 
 Run:  uv run streamlit run app/streamlit_app.py
 
@@ -21,6 +21,7 @@ from option_persona.core.errors import OptionPersonaError
 from option_persona.core.models import OptionContract, OptionPosition
 from option_persona.core.time import BANGKOK, DAYS_PER_YEAR, NEW_YORK, time_to_expiry
 from option_persona.core.types import ExerciseStyle, OptionType
+from option_persona.data import CANONICAL_COLUMNS, read_option_chain_csv, synthetic_canonical_chain
 from option_persona.pricing import (
     bsm_greeks,
     bsm_price,
@@ -60,8 +61,8 @@ st.sidebar.caption(
 )
 
 st.title("Option Persona")
-tab_price, tab_iv, tab_trade, tab_parity = st.tabs(
-    ["Pricer & Greeks", "Implied volatility", "Trade analyser", "Parity lab"])
+tab_price, tab_iv, tab_trade, tab_parity, tab_import = st.tabs(
+    ["Pricer & Greeks", "Implied volatility", "Trade analyser", "Parity lab", "Chain import"])
 
 # ------------------------------------------------------------------ pricer
 with tab_price:
@@ -285,3 +286,57 @@ with tab_parity:
                 st.markdown(f"- {note}")
     except (OptionPersonaError, ValueError) as e:
         st.error(str(e))
+
+# ------------------------------------------------------------------ chain import
+with tab_import:
+    st.subheader("Option-chain CSV import")
+    st.caption(
+        "Validates a chain snapshot into quotes that carry their provenance. Rows that cannot be "
+        "trusted are rejected with a reason; nothing missing is filled in. Canonical columns: "
+        + ", ".join(f"`{c}`" for c in CANONICAL_COLUMNS) + "."
+    )
+    example = synthetic_canonical_chain(
+        datetime(2026, 11, 5, 15, 0, tzinfo=NEW_YORK), date(2026, 12, 18),
+        violations={90.0: 0.60, 105.0: -0.50})
+    st.download_button(
+        "Download a synthetic example CSV (" + label("synthetic") + ")",
+        example.to_csv(index=False), file_name="synthetic_example_chain.csv", mime="text/csv")
+
+    upload = st.file_uploader("Chain CSV", type=["csv"])
+    c = st.columns(3)
+    src = c[0].text_input("Source (required)", placeholder="e.g. IBKR TWS export, Cboe delayed quotes")
+    delay_choice = c[1].radio("Quote timeliness", ["Delayed", "Real-time", "Per-row is_delayed column"],
+                              help="Cannot be inferred from a file: you must declare it.")
+    tz_choice = c[2].selectbox("Time zone for timestamps without an offset",
+                               ["Reject them", "America/New_York", "Asia/Bangkok"])
+    if upload is not None:
+        if not src.strip():
+            st.info("Enter where this file came from before it can be imported.")
+        else:
+            delayed = {"Delayed": True, "Real-time": False}.get(delay_choice)
+            try:
+                result = read_option_chain_csv(
+                    upload, source=src, is_delayed=delayed,
+                    assume_timezone=None if tz_choice == "Reject them" else tz_choice)
+            except (OptionPersonaError, ValueError) as e:
+                st.error(str(e))
+            else:
+                m = st.columns(4)
+                m[0].metric("Rows read", result.rows_read)
+                m[1].metric("Accepted", result.rows_accepted)
+                m[2].metric("Rejected", result.rows_rejected)
+                m[3].metric("Warnings", len(result.warnings))
+                frame = result.to_frame()
+                if not frame.empty and frame["is_synthetic"].any():
+                    st.warning(label("synthetic") + ": some or all rows are synthetic, not market data.")
+                if result.assumptions:
+                    st.markdown("**" + label("assume") + "s made during import**")
+                    for a in result.assumptions:
+                        st.markdown(f"- {a}")
+                if result.issues:
+                    st.markdown("**Issues** (error = row rejected; warning = row kept, check it)")
+                    st.dataframe(result.issues_frame(), hide_index=True, width="stretch")
+                if not frame.empty:
+                    st.markdown("**" + label("obs") + ": accepted quotes**")
+                    st.caption("Mid is an indicative reference only; executable prices are bid and ask.")
+                    st.dataframe(frame, hide_index=True, width="stretch")

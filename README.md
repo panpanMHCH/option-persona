@@ -6,7 +6,7 @@ Option Persona is a research platform for options valuation, arbitrage feasibili
 
 It is **read-only and analytical**. It does not connect to brokers, place orders or make trading decisions, and nothing in it is investment advice.
 
-## Status: Phase 1 (mathematical foundation and MVP)
+## Status: Phase 1 complete; Phase 2 (arbitrage feasibility) in progress
 
 | Area | Phase 1 contents |
 |---|---|
@@ -14,7 +14,8 @@ It is **read-only and analytical**. It does not connect to brokers, place orders
 | Module B — Arbitrage | Put-call parity residuals; three-tier assessment (theoretical residual → apparent executable edge at bid/ask after fees and asymmetric financing → execution risks); synthetic chains with labelled injected violations |
 | Module D — Leverage & risk | Share-equivalent exposure, delta-adjusted notional, elasticity (λ), premium at risk, % of equity, spot × vol stress grid, comparison with shares, concentration/leverage/expiry/liquidity warnings |
 | Module E — Trade analyser | Long call/put positions: breakeven, max loss/gain, expiry P&L after fees, BSM scenario grid through time, realised P&L |
-| Dashboard | Minimal Streamlit app connecting the modules above |
+| Data ingestion (Phase 2) | Option-chain CSV import into validated quotes with provenance; row-level rejection with reasons; contract terms from the file, a known-index registry, or a stated assumption ([notes](docs/data/chain_csv_import.md)) |
+| Dashboard | Streamlit app connecting the modules above, including a chain-import tab |
 
 See [ROADMAP.md](ROADMAP.md) for what comes next.
 
@@ -79,6 +80,7 @@ src/option_persona/
   pricing/     Black-Scholes-Merton, Greeks, implied volatility          (Module A)
   arbitrage/   put-call parity assessment, synthetic chain generator     (Module B)
   risk/        expiry payoff, scenario engine, leverage & exposure       (Modules D, E)
+  data/        option-chain CSV ingestion with provenance and stated assumptions
 app/           Streamlit dashboard (no financial maths in the UI layer)
 tests/         pytest + hypothesis; QuantLib cross-validation
 scripts/       reproducible verification and case-study scripts
@@ -102,7 +104,7 @@ Full detail is in [docs/models/](docs/models/) and [CLAUDE.md](CLAUDE.md).
 - **Constant volatility, rate and dividend yield.** There's no smile, term structure or stochastic volatility in scenarios yet. In a sell-off, implied volatility usually rises, so constant-vol scenarios understate put values in crashes.
 - **Continuous dividend yield** approximates discrete dividends.
 - **Basic cost model.** Fees are per contract, with flat borrow/lend spreads and a flat stock-borrow fee. There's no slippage model, no quote-size checks and no margin.
-- **No real market data yet.** CSV chain ingestion, quote-freshness and liquidity checks, and vertical/box spreads belong to Phase 2.
+- **No market-data feed.** Chains can be imported from CSV files you supply. Storage, quote-freshness and liquidity checks, and vertical/box spreads are still to come in Phase 2.
 - **Long positions only.** No short options, spreads, margin borrowing or portfolio aggregation in the MVP.
 
 ## Licence

@@ -31,6 +31,7 @@ The differentiation it pursues: **explainable valuation, arbitrage feasibility a
 - `src/option_persona/core`: enums, validation (`InvalidInputError` with actionable messages), time conventions, Pydantic models (`OptionContract`, `Provenance`, `OptionQuote`, `OptionPosition`).
 - `pricing`: pure, deterministic, NumPy-broadcasting functions. No state, I/O or randomness.
 - `arbitrage`: model-free identities plus the cost-aware assessment, and a seeded, labelled synthetic data generator.
+- `data`: CSV chain ingestion into provenance-carrying `OptionQuote`s. It rejects rows rather than guessing, and records every assumption (contract terms, time zone) in the result.
 - `risk`: model-free payoff (`payoff.py`), model-dependent scenarios (`scenarios.py`, with `ModelAssumptions` always surfaced), and exposure/leverage (`leverage.py`).
 - `app/`: Streamlit UI only, with **no financial maths**. It calls library functions and labels outputs as observation, model or assumption.
 - Pydantic is used only at the data boundary. Pricing takes plain floats/arrays for speed and testability.

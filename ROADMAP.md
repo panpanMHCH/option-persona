@@ -16,9 +16,9 @@
 
 **Acceptance criteria:** all met. See [docs/verification.md](docs/verification.md).
 
-## Phase 2: Arbitrage feasibility (next)
+## Phase 2: Arbitrage feasibility (in progress)
 
-- [ ] Option-chain CSV ingestion into validated `OptionQuote` records, with source and timestamp
+- [x] Option-chain CSV ingestion into validated `OptionQuote` records, with source and timestamp (9 November 2026; see [docs/data/chain_csv_import.md](docs/data/chain_csv_import.md))
 - [ ] Local storage in DuckDB/Parquet, plus a provider interface for future data feeds
 - [ ] Quote freshness, staleness and leg-synchronisation checks; displayed size; zero-bid handling
 - [ ] Executable bid-ask parity screening over real chain snapshots (XSP/SPX first: European, cash-settled)

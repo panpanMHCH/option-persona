@@ -71,11 +71,22 @@ class OptionQuote(BaseModel):
     provenance: Provenance
     bid_size: int | None = Field(default=None, ge=0)
     ask_size: int | None = Field(default=None, ge=0)
+    underlying_bid: float | None = Field(
+        default=None, gt=0, description="Underlying bid, if quoted (indices usually have none)"
+    )
+    underlying_ask: float | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _crossed(self) -> Self:
         if self.bid > self.ask:
             raise ValueError(f"Crossed quote: bid {self.bid} exceeds ask {self.ask}.")
+        if (self.underlying_bid is None) != (self.underlying_ask is None):
+            raise ValueError("Supply both underlying_bid and underlying_ask, or neither.")
+        if (self.underlying_bid is not None and self.underlying_ask is not None
+                and self.underlying_bid > self.underlying_ask):
+            raise ValueError(
+                f"Crossed underlying quote: bid {self.underlying_bid} exceeds ask {self.underlying_ask}."
+            )
         return self
 
     @property
